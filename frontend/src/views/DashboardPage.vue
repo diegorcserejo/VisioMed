@@ -55,7 +55,22 @@ export default {
                 { id: 1, name: 'Raio-X Torácico - Maria Silva', date: '2024-01-15', status: 'completed' },
                 { id: 2, name: 'Tomografia - João Santos', date: '2024-01-14', status: 'analyzing' },
                 { id: 3, name: 'Ressonância - Ana Oliveira', date: '2024-01-13', status: 'pending' },
-                { id: 4, name: 'Mamografia - Carla Souza', date: '2024-01-12', status: 'completed' }
+                { id: 4, name: 'Mamografia - Carla Souza', date: '2024-01-12', status: 'completed' },
+                { id: 5, name: 'Ultrassom - Roberto Lima', date: '2024-01-11', status: 'completed' },
+                { id: 6, name: 'TC Abdômen - Fernanda Costa', date: '2024-01-10', status: 'analyzing' },
+                { id: 7, name: 'RM Coluna - Paulo Mendes', date: '2024-01-09', status: 'completed' },
+                { id: 8, name: 'Raio-X Joelho - Luciana Rocha', date: '2024-01-08', status: 'pending' },
+                { id: 9, name: 'Densitometria - Mariana Dias', date: '2024-01-07', status: 'completed' },
+                { id: 10, name: 'Ecocardiograma - Carlos Eduardo', date: '2024-01-06', status: 'analyzing' },
+                { id: 11, name: 'Mamografia - Vera Lúcia', date: '2024-01-05', status: 'completed' },
+                { id: 12, name: 'Tomografia Crânio - Rafael Alves', date: '2024-01-04', status: 'pending' },
+                { id: 13, name: 'Raio-X Abdômen - Simone Nunes', date: '2024-01-03', status: 'completed' },
+                { id: 14, name: 'Ressonância Joelho - Ricardo Teixeira', date: '2024-01-02', status: 'analyzing' },
+                { id: 15, name: 'Ultrassom Tireoide - Patrícia Gomes', date: '2024-01-01', status: 'completed' },
+                { id: 16, name: 'TC Tórax - André Campos', date: '2023-12-31', status: 'completed' },
+                { id: 17, name: 'RM Ombro - Tatiana Reis', date: '2023-12-30', status: 'analyzing' },
+                { id: 18, name: 'Raio-X Punho - Gustavo Martins', date: '2023-12-29', status: 'pending' },
+                { id: 19, name: 'Ecografia - Helena Nogueira', date: '2023-12-28', status: 'completed' }
             ]
         }
     },
