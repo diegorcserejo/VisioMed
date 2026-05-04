@@ -17,7 +17,7 @@
                 <div class="form-group">
                     <label><i class="fas fa-stethoscope"></i> Tipo de Exame:*</label>
                     <select v-model="patientData.examType">
-                        <option value="">Selecione...</option>
+                        <option value="">Selecione....</option>
                         <option value="Laudo">Laudo</option>
                         <option value="Raio-X Torácico">Raio-X Torácico</option>
                         <option value="Tomografia Computadorizada">Tomografia Computadorizada</option>
