@@ -7,17 +7,18 @@
             <h4><i class="fas fa-user-md"></i> Dados do Paciente</h4>
             <div class="form-grid">
                 <div class="form-group">
-                    <label><i class="fas fa-user"></i> Nome Completo:</label>
+                    <label><i class="fas fa-user"></i> Nome Completo:*</label>
                     <input type="text" v-model="patientData.name" placeholder="Ex: Maria da Silva Santos">
                 </div>
                 <div class="form-group">
-                    <label><i class="fas fa-calendar-alt"></i> Data do Exame:</label>
+                    <label><i class="fas fa-calendar-alt"></i> Data do Exame:*</label>
                     <input type="date" v-model="patientData.examDate">
                 </div>
                 <div class="form-group">
-                    <label><i class="fas fa-stethoscope"></i> Tipo de Exame:</label>
+                    <label><i class="fas fa-stethoscope"></i> Tipo de Exame:*</label>
                     <select v-model="patientData.examType">
                         <option value="">Selecione...</option>
+                        <option value="Laudo">Laudo</option>
                         <option value="Raio-X Torácico">Raio-X Torácico</option>
                         <option value="Tomografia Computadorizada">Tomografia Computadorizada</option>
                         <option value="Ressonância Magnética">Ressonância Magnética</option>
@@ -28,7 +29,7 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label><i class="fas fa-venus-mars"></i> Idade:</label>
+                    <label><i class="fas fa-venus-mars"></i> Idade:*</label>
                     <input type="number" v-model="patientData.age" placeholder="Ex: 45">
                 </div>
                 <div class="form-group">
@@ -42,13 +43,34 @@
             </div>
         </div>
 
+        <!-- Área de Upload -->
         <div class="upload-area" @click="triggerUpload" @dragover.prevent @drop.prevent="handleDrop" :class="{ 'upload-disabled': analyzing || result }">
             <input type="file" ref="fileInput" @change="handleFile" accept="image/*" hidden>
             <i class="fas fa-cloud-upload-alt upload-icon"></i>
             <p>Arraste ou clique para enviar exame</p>
             <span class="upload-hint"><i class="fas fa-info-circle"></i> Suporta DICOM, PNG, JPG</span>
         </div>
+
+        <!-- Arquivo Selecionado -->
+        <div v-if="selectedFile && !analyzing && !result" class="selected-file">
+            <i class="fas fa-file-image"></i>
+            <span>{{ selectedFile.name }}</span>
+            <button class="remove-file" @click="removeFile">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Botões de Ação -->
+        <div v-if="selectedFile && !analyzing && !result" class="action-buttons">
+            <button class="btn-clear" @click="clearForm">
+                <i class="fas fa-trash-alt"></i> Limpar
+            </button>
+            <button class="btn-analyze" @click="startAnalysis" :disabled="!isFormValid">
+                <i class="fas fa-microchip"></i> Executar Análise com IA
+            </button>
+        </div>
         
+        <!-- Análise em Progresso -->
         <div v-if="analyzing" class="analyzing">
             <div class="spinner"></div>
             <p><i class="fas fa-microchip"></i> Analisando imagem com IA...</p>
@@ -65,10 +87,12 @@
             </div>
         </div>
         
+        <!-- Resultado da Análise -->
         <div v-if="result" class="result">
             <div class="result-header">
                 <i class="fas fa-robot result-icon"></i>
-                <h4>Laudo de Análise por IA</h4>
+                <i class="fas fa-microscope"></i>
+                <h4>Análise Personalizada do Exame</h4>
             </div>
             
             <!-- Informações do Paciente -->
@@ -139,6 +163,11 @@
                 </button>
             </div>
         </div>
+
+        <!-- Mensagem de validação -->
+        <div v-if="validationMessage" class="validation-message">
+            <i class="fas fa-exclamation-triangle"></i> {{ validationMessage }}
+        </div>
     </div>
 </template>
 
@@ -150,6 +179,8 @@ export default {
             analyzing: false,
             result: null,
             step: 0,
+            selectedFile: null,
+            validationMessage: '',
             patientData: {
                 name: '',
                 examDate: new Date().toISOString().split('T')[0],
@@ -158,6 +189,14 @@ export default {
                 cpf: '',
                 phone: ''
             }
+        }
+    },
+    computed: {
+        isFormValid() {
+            return this.patientData.name && 
+                   this.patientData.examType && 
+                   this.patientData.age && 
+                   this.selectedFile
         }
     },
     methods: {
@@ -170,21 +209,59 @@ export default {
             if (this.analyzing || this.result) return
             const file = e.dataTransfer.files[0]
             if (file && file.type.startsWith('image/')) {
-                this.processImage(file)
+                this.selectedFile = file
+                this.validationMessage = ''
             } else {
-                alert('Por favor, envie apenas arquivos de imagem.')
+                this.validationMessage = 'Por favor, envie apenas arquivos de imagem.'
+                setTimeout(() => this.validationMessage = '', 3000)
             }
         },
         handleFile(e) {
             if (this.analyzing || this.result) return
             const file = e.target.files[0]
             if (file) {
-                this.processImage(file)
+                this.selectedFile = file
+                this.validationMessage = ''
             }
         },
-        async processImage(file) {
-            // Validar dados do paciente
+        removeFile() {
+            this.selectedFile = null
+            this.$refs.fileInput.value = ''
+        },
+        clearForm() {
+            this.removeFile()
+            this.patientData = {
+                name: '',
+                examDate: new Date().toISOString().split('T')[0],
+                examType: '',
+                age: '',
+                cpf: '',
+                phone: ''
+            }
+            this.validationMessage = ''
+        },
+        validatePatientData() {
+            if (!this.patientData.name) {
+                this.validationMessage = 'Por favor, informe o nome do paciente.'
+                return false
+            }
+            if (!this.patientData.examType) {
+                this.validationMessage = 'Por favor, selecione o tipo de exame.'
+                return false
+            }
+            if (!this.patientData.age) {
+                this.validationMessage = 'Por favor, informe a idade do paciente.'
+                return false
+            }
+            if (!this.selectedFile) {
+                this.validationMessage = 'Por favor, selecione um arquivo de exame.'
+                return false
+            }
+            return true
+        },
+        async startAnalysis() {
             if (!this.validatePatientData()) {
+                setTimeout(() => this.validationMessage = '', 3000)
                 return
             }
 
@@ -192,153 +269,332 @@ export default {
             this.result = null
             this.step = 0
             
-            // Simular progresso da análise
+            // Simular análise da imagem
             this.step = 1
             await this.sleep(1000)
             this.step = 2
             await this.sleep(1500)
             this.step = 3
             
-            // Gerar análise baseada no tipo de exame
-            const analysis = this.generateAnalysisByExamType()
+            // Gerar análise ÚNICA baseada no nome do arquivo, tipo de exame e hora
+            // para garantir que cada exame tenha uma análise diferente
+            const analysis = this.generateDetailedAnalysis()
             
-            setTimeout(() => {
-                this.result = analysis
-                this.analyzing = false
-                
-                // Emitir evento para o Dashboard com todos os dados
-                this.$emit('exam-analyzed', {
-                    examId: Date.now(),
-                    patientData: { ...this.patientData },
-                    analysis: this.result,
-                    date: this.patientData.examDate
-                })
-            }, 500)
-        },
-        
-        validatePatientData() {
-            if (!this.patientData.name) {
-                alert('Por favor, informe o nome do paciente.')
-                return false
-            }
-            if (!this.patientData.examType) {
-                alert('Por favor, selecione o tipo de exame.')
-                return false
-            }
-            if (!this.patientData.age) {
-                alert('Por favor, informe a idade do paciente.')
-                return false
-            }
-            return true
-        },
-        
-        generateAnalysisByExamType() {
-            const examAnalyses = {
-                'Raio-X Torácico': {
-                    confidence: Math.floor(Math.random() * 15) + 82,
-                    diagnosis: 'Nódulo pulmonar identificado no lobo superior direito, medindo aproximadamente 1.8cm, com bordas irregulares e leve espiculação.',
-                    details: [
-                        'Opacidade nodular única em topografia de lobo superior direito',
-                        'Bordas levemente irregulares com pequenas espiculações',
-                        'Ausência de calcificações grosseiras',
-                        'Sem adenopatias hilares evidentes',
-                        'Campos pulmonares com boa expansibilidade'
-                    ],
-                    recommendationsArray: [
-                        'Realizar Tomografia Computadorizada de tórax com contraste',
-                        'Avaliação pneumológica em até 7 dias',
-                        'Considerar PET-CT para estadiamento',
-                        'Acompanhamento radiológico seriado'
-                    ]
-                },
-                'Tomografia Computadorizada': {
-                    confidence: Math.floor(Math.random() * 10) + 87,
-                    diagnosis: 'Processo inflamatório agudo no lobo inferior do pulmão esquerdo, com padrão de consolidação sugestivo de pneumonia.',
-                    details: [
-                        'Consolidação parenquimatosa em topografia de lobo inferior esquerdo',
-                        'Sinal do ar broncograma presente',
-                        'Derrame pleural laminar homolateral mínimo',
-                        'Linfonodos mediastinais reativos',
-                        'Sem evidência de abscessos'
-                    ],
-                    recommendationsArray: [
-                        'Iniciar antibioticoterapia guiada por cultura',
-                        'Controle radiológico em 30 dias',
-                        'Avaliação clínica com reavaliação de sintomas',
-                        'Exames laboratoriais: hemograma, PCR, procalcitonina'
-                    ]
-                },
-                'Ressonância Magnética': {
-                    confidence: Math.floor(Math.random() * 12) + 85,
-                    diagnosis: 'Hérnia de disco lombar L4-L5 com compressão do saco tecal e raiz nervosa L5 direita.',
-                    details: [
-                        'Protrusão discal paramediana direita em L4-L5',
-                        'Compressão do saco tecal moderada',
-                        'Envolvimento da raiz nervosa L5 direita',
-                        'Sinais de degeneração discal associada',
-                        'Sem alterações inflamatórias significativas'
-                    ],
-                    recommendationsArray: [
-                        'Fisioterapia especializada para coluna',
-                        'Avaliação neurocirúrgica para considerar tratamento cirúrgico',
-                        'Analgesia controlada para manejo da dor',
-                        'RM de controle em 6 meses se sintomas persistirem'
-                    ]
-                },
-                'Mamografia': {
-                    confidence: Math.floor(Math.random() * 12) + 86,
-                    diagnosis: 'Microcalcificações agrupadas BI-RADS 4A no quadrante súpero-lateral da mama direita, sem nódulo associado.',
-                    details: [
-                        'Agrupamento de microcalcificações pleomórficas',
-                        'Distribuição segmentar no QSL da mama direita',
-                        'Parênquima mamário denso tipo C',
-                        'Ausência de nódulo ou distorção arquitetural',
-                        'Lesões contralaterais sem alterações significativas'
-                    ],
-                    recommendationsArray: [
-                        'Core biopsy guiada por estereotaxia',
-                        'Marcação pré-cirúrgica com arpão (se indicado)',
-                        'Avaliação com mastologista em até 10 dias',
-                        'Complementar com ultrassom focalizado'
-                    ]
-                },
-                'Ultrassom': {
-                    confidence: Math.floor(Math.random() * 12) + 88,
-                    diagnosis: 'Nódulo hepático benigno - características sugestivas de hemangioma, medindo 2.5cm no segmento VII.',
-                    details: [
-                        'Lesão sólida hiperecogênica, bem delimitada',
-                        'Contornos regulares e formato ovalado',
-                        'Reforço acústico posterior ausente',
-                        'Vascularização periférica ao Doppler',
-                        'Consistência homogênea'
-                    ],
-                    recommendationsArray: [
-                        'Controle ultrassonográfico em 12 meses',
-                        'TC ou RM com contraste para confirmação diagnóstica',
-                        'Dosagem de marcadores tumorais para segurança',
-                        'Manter acompanhamento clínico semestral'
-                    ]
+            await this.sleep(500)
+            
+            this.result = analysis
+            this.analyzing = false
+            
+            // Criar objeto do exame para enviar ao Dashboard
+            const examId = Date.now()
+            
+            const examData = {
+                id: examId,
+                name: `${this.patientData.examType} - ${this.patientData.name}`,
+                date: this.patientData.examDate,
+                status: 'completed',
+                patientData: { ...this.patientData },
+                analysis: {
+                    primaryFindings: analysis.diagnosis,
+                    details: analysis.details,
+                    confidence: analysis.confidence,
+                    severity: analysis.severity,
+                    recommendations: analysis.recommendationsArray,
+                    technicalParams: analysis.technicalParams
                 }
             }
             
-            const defaultAnalysis = {
-                confidence: Math.floor(Math.random() * 20) + 75,
-                diagnosis: 'Alterações sugestivas de processo inflamatório/infeccioso, necessitando correlação clínica para elucidação diagnóstica.',
+            // Emitir evento para o Dashboard
+            this.$emit('exam-analyzed', examData)
+        },
+        
+        generateDetailedAnalysis() {
+            // Usar o nome do arquivo e timestamp para gerar análises únicas
+            const fileName = this.selectedFile.name
+            const timestamp = Date.now()
+            const uniqueSeed = (fileName.length + timestamp) % 10
+            
+            // Baseado no tipo de exame e seed único
+            const examType = this.patientData.examType
+            const patientAge = parseInt(this.patientData.age)
+            
+            // Análises detalhadas por tipo de exame com variações
+            const analyses = {
+                'Raio-X Torácico': this.getRadiografiaAnalysis(uniqueSeed, patientAge),
+                'Tomografia Computadorizada': this.getTomografiaAnalysis(uniqueSeed, patientAge),
+                'Ressonância Magnética': this.getRessonanciaAnalysis(uniqueSeed, patientAge),
+                'Mamografia': this.getMamografiaAnalysis(uniqueSeed, patientAge),
+                'Ultrassom': this.getUltrassomAnalysis(uniqueSeed, patientAge),
+                'Densitometria Óssea': this.getDensitometriaAnalysis(uniqueSeed, patientAge),
+                'Ecocardiograma': this.getEcocardiogramaAnalysis(uniqueSeed, patientAge)
+            }
+            
+            return analyses[examType] || this.getDefaultAnalysis(uniqueSeed, patientAge)
+        },
+        
+        getRadiografiaAnalysis(seed, age) {
+            const findings = [
+                {
+                    diagnosis: 'Infiltrado intersticial bilateral sugestivo de pneumonia viral. Opacidades reticulonodulares difusas com predomínio peribroncovascular.',
+                    details: [
+                        'Opacidades intersticiais difusas em ambos os pulmões',
+                        'Espessamento peribroncovascular moderado',
+                        'Pequenos derrames pleurais bilaterais',
+                        'Silhueta cardíaca e mediastino sem alterações'
+                    ],
+                    confidence: 87 + seed,
+                    severity: 'Moderado',
+                    recommendations: [
+                        'Iniciar tratamento antiviral e antibioticoterapia',
+                        'Coleta de swab nasofaríngeo para painel viral',
+                        'Controle radiológico em 14 dias',
+                        'Avaliação com pneumologista'
+                    ]
+                },
+                {
+                    diagnosis: 'Massa mediastinal anterior com calcificações grosseiras, sugestiva de teratoma maduro. Lesão com dimensões de 4.5 x 3.8cm.',
+                    details: [
+                        'Massa heterogênea em topografia de mediastino anterior',
+                        'Componente cístico e áreas de calcificação',
+                        'Sem invasão de estruturas adjacentes',
+                        'Gordura mediastinal preservada'
+                    ],
+                    confidence: 92 + seed,
+                    severity: 'Alto',
+                    recommendations: [
+                        'TC de tórax com contraste para caracterização',
+                        'Avaliação com cirurgião torácico',
+                        'Ressonância magnética para detalhamento tecidual',
+                        'Marcadores tumorais: AFP e beta-HCG'
+                    ]
+                },
+                {
+                    diagnosis: 'Pneumotórax espontâneo à direita com colapso pulmonar de aproximadamente 30%. Linha pleural visível e ausência de trama vascular periférica.',
+                    details: [
+                        'Linha pleural visível no hemitórax direito',
+                        'Colapso pulmonar parcial (30%)',
+                        'Desvio traqueal contralateral ausente',
+                        'Sem sinais de tensão'
+                    ],
+                    confidence: 95 + seed,
+                    severity: 'Alto',
+                    recommendations: [
+                        'Oxigenioterapia com alto fluxo',
+                        'Considerar drenagem torácica se progressão',
+                        'Avaliação em pronto-socorro imediata',
+                        'Radiografia de controle em 6 horas'
+                    ]
+                }
+            ]
+            
+            return findings[seed % findings.length]
+        },
+        
+        getTomografiaAnalysis(seed, age) {
+            const findings = [
+                {
+                    diagnosis: 'Nódulo pulmonar solitário em lobo superior direito, espiculado, com características suspeitas para neoplasia primária. Medindo 2.1 x 1.8cm.',
+                    details: [
+                        'Nódulo com bordas espiculadas e pequenas lobulações',
+                        'Densidade de partes moles levemente heterogênea',
+                        'Ausência de calcificações',
+                        'Linfonodos mediastinais reativos < 1cm'
+                    ],
+                    confidence: 94 + seed,
+                    severity: 'Alto',
+                    recommendations: [
+                        'PET-CT para estadiamento',
+                        'Biópsia percutânea guiada por TC',
+                        'Avaliação com oncologista torácico',
+                        'Dosagem de marcadores tumorais'
+                    ]
+                },
+                {
+                    diagnosis: 'Embolia pulmonar em artéria segmentar do lobo inferior esquerdo. Defeito de preenchimento central visível com sinal do "rail track".',
+                    details: [
+                        'Defeito de preenchimento intraluminal na artéria segmentar esquerda',
+                        'Sinal do "anel" característico',
+                        'Áreas de oligoemia distal à lesão',
+                        'Ventrículo direito sem sinais de sobrecarga'
+                    ],
+                    confidence: 96 + seed,
+                    severity: 'Alto',
+                    recommendations: [
+                        'Anticoagulação imediata com heparina',
+                        'Avaliação de função renal',
+                        'Ecocardiograma para avaliação de função ventricular',
+                        'Dosagem de D-dímero e troponinas'
+                    ]
+                }
+            ]
+            return findings[seed % findings.length]
+        },
+        
+        getMamografiaAnalysis(seed, age) {
+            const findings = [
+                {
+                    diagnosis: `Microcalcificações agrupadas BI-RADS 4B no quadrante súpero-lateral da mama direita. ${age > 50 ? 'Paciente na pós-menopausa, parênquima mamário predominantemente gorduroso.' : 'Paciente em idade fértil, parênquima mamário denso.'}`,
+                    details: [
+                        'Agrupamento de 8-10 microcalcificações pleomórficas',
+                        'Distribuição segmentar sugerindo origem ductal',
+                        'Sem nódulo ou distorção arquitetural associada',
+                        'Lesões contralaterais sem alterações'
+                    ],
+                    confidence: 88 + seed,
+                    severity: 'Alto',
+                    recommendations: [
+                        'Core biopsy guiada por estereotaxia',
+                        'Marcação pré-cirúrgica com arpão',
+                        'RM de mama para extensão da doença',
+                        'Avaliação com mastologista em 5 dias'
+                    ]
+                },
+                {
+                    diagnosis: 'Nódulo espiculado BI-RADS 5 na mama esquerda, altamente sugestivo de malignidade. Lesão com 3.2cm no quadrante ínfero-externo.',
+                    details: [
+                        'Nódulo com bordas irregulares e espiculações',
+                        'Aspecto de "estrela" característico',
+                        'Microcalcificações grosseiras no interior',
+                        'Retração cutânea associada'
+                    ],
+                    confidence: 96 + seed,
+                    severity: 'Alto',
+                    recommendations: [
+                        'Core biopsy imediata com ultrassom',
+                        'RM de mama bilateral para estadiamento local',
+                        'Avaliação de linfonodos axilares',
+                        'Consulta com mastologista e oncologista'
+                    ]
+                }
+            ]
+            return findings[seed % findings.length]
+        },
+        
+        getUltrassomAnalysis(seed, age) {
+            const findings = [
+                {
+                    diagnosis: 'Nódulo hepático hiperecogênico bem delimitado, características sugestivas de hemangioma. Medindo 2.8cm no segmento VI.',
+                    details: [
+                        'Lesão sólida hiperecogênica homogênea',
+                        'Contornos regulares bem definidos',
+                        'Reforço acústico posterior ausente',
+                        'Vascularização periférica ao Doppler'
+                    ],
+                    confidence: 93 + seed,
+                    severity: 'Baixo',
+                    recommendations: [
+                        'Controle ultrassonográfico em 12 meses',
+                        'TC com contraste trifásico para confirmação',
+                        'Dosagem de alfafetoproteína',
+                        'Manter acompanhamento semestral'
+                    ]
+                },
+                {
+                    diagnosis: 'Cisto renal complexo Bosniak IIF no polo superior do rim direito, septo fino com leve espessamento. Medindo 4.5 x 3.8cm.',
+                    details: [
+                        'Lesão cística multiloculada',
+                        'Septo fino com leve espessamento',
+                        'Ausência de calcificações grosseiras',
+                        'Sem realce após contraste'
+                    ],
+                    confidence: 89 + seed,
+                    severity: 'Moderado',
+                    recommendations: [
+                        'TC ou RM com contraste para caracterização',
+                        'Acompanhamento em 6 meses',
+                        'Dosagem de creatinina e eletrólitos',
+                        'Controle ultrassonográfico seriado'
+                    ]
+                }
+            ]
+            return findings[seed % findings.length]
+        },
+        
+        getRessonanciaAnalysis(seed, age) {
+            return {
+                diagnosis: `Hérnia de disco lombar em L4-L5 com compressão do saco tecal e raiz nervosa L5 ${seed % 2 === 0 ? 'direita' : 'esquerda'}. Protusão discal paramediana medindo 6mm.`,
                 details: [
-                    'Alterações inflamatórias leves identificadas',
-                    'Sem sinais de malignidade evidentes',
-                    'Estruturas anatômicas preservadas',
-                    'Realizar correlação com dados clínicos'
+                    'Protrusão discal paramediana em L4-L5',
+                    'Compressão significativa do saco tecal',
+                    'Envolvimento da raiz nervosa L5',
+                    'Sinais de degeneração discal associada'
                 ],
-                recommendationsArray: [
+                confidence: 91 + seed,
+                severity: age > 50 ? 'Alto' : 'Moderado',
+                recommendations: [
+                    'Fisioterapia especializada para coluna',
+                    'Avaliação neurocirúrgica',
+                    'Analgesia controlada com anti-inflamatórios',
+                    'RM de controle em 6 meses'
+                ]
+            }
+        },
+        
+        getDensitometriaAnalysis(seed, age) {
+            const tScore = -1.5 - (seed / 10)
+            return {
+                diagnosis: `${Math.abs(tScore) > 2.0 ? 'Osteoporose estabelecida' : 'Osteopenia'} em coluna lombar e fêmur proximal. T-score: ${tScore.toFixed(1)} em L1-L4.`,
+                details: [
+                    `T-score: ${tScore.toFixed(1)} em coluna lombar`,
+                    `T-score: ${(tScore + 0.2).toFixed(1)} em colo femoral`,
+                    'Z-score dentro do esperado para idade e gênero',
+                    'Risco de fratura moderadamente aumentado'
+                ],
+                confidence: 94 + seed,
+                severity: Math.abs(tScore) > 2.0 ? 'Alto' : 'Moderado',
+                recommendations: Math.abs(tScore) > 2.0 ? [
+                    'Bisfosfonatos ou denosumabe',
+                    'Cálcio 1200mg/dia + Vitamina D 2000UI/dia',
+                    'Exercícios com impacto e musculação',
+                    'Avaliação endocrinológica'
+                ] : [
+                    'Suplementação de cálcio (1200mg/dia)',
+                    'Vitamina D (2000UI/dia)',
+                    'Exercícios com impacto controlado',
+                    'Reavaliação em 1 ano'
+                ]
+            }
+        },
+        
+        getEcocardiogramaAnalysis(seed, age) {
+            const ejectionFraction = 55 + (seed * 2)
+            return {
+                diagnosis: `Função ventricular esquerda preservada com fração de ejeção de ${ejectionFraction}%. Leve disfunção diastólica grau I (padrão de relaxamento anormal).`,
+                details: [
+                    `FEVE: ${ejectionFraction}% (método de Simpson)`,
+                    'Relação E/A: 0.75',
+                    'Tempo de desaceleração: 240ms',
+                    'Pressão de átrio direito estimada em 8mmHg'
+                ],
+                confidence: 90 + seed,
+                severity: 'Baixo',
+                recommendations: [
+                    'Controle pressórico rigoroso (<130/80mmHg)',
+                    'Ecocardiograma de controle em 12 meses',
+                    'Evitar anti-inflamatórios não hormonais',
+                    'Avaliação cardiológica anual'
+                ]
+            }
+        },
+        
+        getDefaultAnalysis(seed, age) {
+            return {
+                diagnosis: `Alterações detectadas no exame de imagem necessitando correlação clínica. ${seed % 2 === 0 ? 'Sinais inflamatórios leves identificados.' : 'Estruturas anatômicas preservadas sem achados significativos.'}`,
+                details: [
+                    'Análise computadorizada concluída',
+                    'Segmentação automática das estruturas',
+                    seed % 2 === 0 ? 'Áreas de hiperdensidade detectadas' : 'Densidade tecidual dentro da normalidade',
+                    'Recomendada revisão por especialista'
+                ],
+                confidence: 85 + seed,
+                severity: 'Moderado',
+                recommendations: [
                     'Encaminhar para especialista para correlação clínica',
                     'Complementar exames laboratoriais',
                     'Reavaliação em consulta médica',
                     'Considerar exames complementares conforme sintomas'
                 ]
             }
-            
-            return examAnalyses[this.patientData.examType] || defaultAnalysis
         },
         
         formatDate(date) {
@@ -348,6 +604,7 @@ export default {
         
         resetForm() {
             this.result = null
+            this.selectedFile = null
             this.patientData = {
                 name: '',
                 examDate: new Date().toISOString().split('T')[0],
@@ -357,6 +614,7 @@ export default {
                 phone: ''
             }
             this.$refs.fileInput.value = ''
+            this.validationMessage = ''
         },
         
         sleep(ms) {
@@ -367,6 +625,7 @@ export default {
 </script>
 
 <style scoped>
+/* ... (mantenha os estilos anteriores) ... */
 .ai-predictor {
     background: rgba(255, 255, 255, 0.03);
     backdrop-filter: blur(10px);
@@ -476,6 +735,85 @@ export default {
     align-items: center;
     justify-content: center;
     gap: 4px;
+}
+
+.selected-file {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: rgba(0, 242, 255, 0.1);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.selected-file i {
+    color: var(--cyber-blue);
+    font-size: 1.2rem;
+}
+
+.selected-file span {
+    color: #fff;
+    flex: 1;
+    font-size: 0.9rem;
+}
+
+.remove-file {
+    background: rgba(255, 0, 0, 0.2);
+    border: none;
+    color: #ff4444;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.remove-file:hover {
+    background: rgba(255, 0, 0, 0.4);
+}
+
+.action-buttons {
+    margin-top: 1rem;
+    display: flex;
+    gap: 1rem;
+}
+
+.btn-clear, .btn-analyze {
+    flex: 1;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-clear {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.btn-clear:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.btn-analyze {
+    background: linear-gradient(135deg, var(--cyber-blue), var(--emerald));
+    color: #000;
+}
+
+.btn-analyze:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 242, 255, 0.3);
+}
+
+.btn-analyze:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .analyzing {
@@ -609,8 +947,9 @@ export default {
 }
 
 .confidence-fill {
-    height: 100%;
     background: linear-gradient(90deg, var(--cyber-blue, #00f2ff), var(--emerald, #00ff88));
+    height: 100%;
+    border-radius: 4px;
     transition: width 0.5s ease;
 }
 
@@ -682,6 +1021,19 @@ export default {
     box-shadow: 0 5px 15px rgba(0, 242, 255, 0.3);
 }
 
+.validation-message {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: rgba(255, 0, 0, 0.2);
+    border: 1px solid rgba(255, 0, 0, 0.3);
+    border-radius: 10px;
+    color: #ff6666;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+}
+
 @keyframes fadeInUp {
     from {
         opacity: 0;
@@ -703,6 +1055,10 @@ export default {
     }
     
     .progress-steps {
+        flex-direction: column;
+    }
+    
+    .action-buttons {
         flex-direction: column;
     }
 }

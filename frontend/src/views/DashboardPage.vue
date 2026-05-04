@@ -17,17 +17,22 @@
         
         <div class="dashboard-grid">
             <div class="ai-predictor-wrapper">
-                <AIPredictor @exam-analyzed="handleExamAnalysis" />
+                <AIPredictor @exam-analyzed="addNewExam" />
             </div>
             <div class="recent-exams">
                 <h3><i class="fas fa-history"></i> Exames Recentes</h3>
                 <div class="exam-list">
+                    <div v-if="recentExams.length === 0" class="no-exams">
+                        <i class="fas fa-folder-open"></i>
+                        <p>Nenhum exame encontrado</p>
+                        <span>Adicione um exame no painel ao lado</span>
+                    </div>
                     <div class="exam-item" v-for="exam in recentExams" :key="exam.id" @click="viewExamDetails(exam)">
                         <div class="exam-info">
                             <span class="exam-name">{{ exam.name }}</span>
-                            <span class="exam-date"><i class="fas fa-calendar-alt"></i> {{ exam.date }}</span>
-                            <span v-if="exam.analysis" class="exam-findings">
-                                <i class="fas fa-stethoscope"></i> {{ exam.analysis.primaryFindings }}
+                            <span class="exam-date"><i class="fas fa-calendar-alt"></i> {{ formatDate(exam.date) }}</span>
+                            <span v-if="exam.status === 'completed' && exam.analysis" class="exam-findings">
+                                <i class="fas fa-stethoscope"></i> {{ exam.analysis.primaryFindings.substring(0, 60) }}...
                             </span>
                         </div>
                         <span class="exam-status" :class="exam.status">
@@ -49,13 +54,46 @@
                     <div class="exam-details">
                         <div class="detail-group">
                             <label><i class="fas fa-calendar"></i> Data do Exame:</label>
-                            <span>{{ selectedExam.date }}</span>
+                            <span>{{ formatDate(selectedExam.date) }}</span>
                         </div>
                         <div class="detail-group">
                             <label><i class="fas fa-chart-line"></i> Status:</label>
                             <span class="status-badge" :class="selectedExam.status">
                                 {{ statusText(selectedExam.status) }}
                             </span>
+                        </div>
+                    </div>
+
+                    <!-- Dados do Paciente -->
+                    <div v-if="selectedExam.patientData" class="analysis-section">
+                        <h3><i class="fas fa-user-circle"></i> Dados do Paciente</h3>
+                        <div class="patient-details-card">
+                            <div class="patient-detail-row">
+                                <div class="patient-detail-item">
+                                    <span class="detail-label"><i class="fas fa-user"></i> Nome:</span>
+                                    <span class="detail-value">{{ selectedExam.patientData.name }}</span>
+                                </div>
+                                <div class="patient-detail-item">
+                                    <span class="detail-label"><i class="fas fa-calendar-alt"></i> Idade:</span>
+                                    <span class="detail-value">{{ selectedExam.patientData.age }} anos</span>
+                                </div>
+                            </div>
+                            <div class="patient-detail-row">
+                                <div class="patient-detail-item">
+                                    <span class="detail-label"><i class="fas fa-stethoscope"></i> Tipo de Exame:</span>
+                                    <span class="detail-value">{{ selectedExam.patientData.examType }}</span>
+                                </div>
+                                <div class="patient-detail-item">
+                                    <span class="detail-label"><i class="fas fa-id-card"></i> CPF:</span>
+                                    <span class="detail-value">{{ selectedExam.patientData.cpf || 'Não informado' }}</span>
+                                </div>
+                            </div>
+                            <div class="patient-detail-row">
+                                <div class="patient-detail-item">
+                                    <span class="detail-label"><i class="fas fa-phone"></i> Telefone:</span>
+                                    <span class="detail-value">{{ selectedExam.patientData.phone || 'Não informado' }}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -116,21 +154,21 @@
                             </ul>
                         </div>
 
-                        <div class="analysis-card">
+                        <div class="analysis-card" v-if="selectedExam.analysis.technicalParams">
                             <div class="analysis-header">
                                 <i class="fas fa-chart-line"></i>
                                 <h4>Parâmetros Técnicos</h4>
                             </div>
                             <div class="technical-params">
-                                <div class="param" v-if="selectedExam.analysis.technicalParams">
+                                <div class="param">
                                     <span class="param-label">Qualidade da Imagem:</span>
                                     <span class="param-value">{{ selectedExam.analysis.technicalParams.imageQuality }}</span>
                                 </div>
-                                <div class="param" v-if="selectedExam.analysis.technicalParams">
+                                <div class="param">
                                     <span class="param-label">Ruído Detectado:</span>
                                     <span class="param-value">{{ selectedExam.analysis.technicalParams.noiseLevel }}</span>
                                 </div>
-                                <div class="param" v-if="selectedExam.analysis.technicalParams">
+                                <div class="param">
                                     <span class="param-label">Resolução:</span>
                                     <span class="param-value">{{ selectedExam.analysis.technicalParams.resolution }}</span>
                                 </div>
@@ -138,9 +176,14 @@
                         </div>
                     </div>
 
-                    <div v-else class="no-analysis">
+                    <div v-else-if="selectedExam.status === 'analyzing'" class="no-analysis">
                         <i class="fas fa-spinner fa-pulse"></i>
-                        <p>Análise em andamento ou não disponível para este exame.</p>
+                        <p>Análise em andamento...</p>
+                    </div>
+
+                    <div v-else-if="selectedExam.status === 'pending'" class="no-analysis">
+                        <i class="fas fa-clock"></i>
+                        <p>Exame aguardando análise</p>
                     </div>
                 </div>
             </div>
@@ -157,183 +200,32 @@ export default {
     data() {
         return {
             selectedExam: null,
-            dashboardStats: [
-                { icon: 'fas fa-chart-simple', value: '247', label: 'Total de Exames' },
-                { icon: 'fas fa-brain', value: '189', label: 'Análises com IA' },
-                { icon: 'fas fa-exclamation-triangle', value: '12', label: 'Casos Críticos' },
-                { icon: 'fas fa-bullseye', value: '94%', label: 'Precisão da IA' }
-            ],
-            recentExams: [
-                { 
-                    id: 1, 
-                    name: 'Raio-X Torácico - Maria Silva', 
-                    date: '2024-01-15', 
-                    status: 'completed',
-                    analysis: {
-                        primaryFindings: 'Nódulo pulmonar suspeito no lobo superior direito, medindo 1.2cm.',
-                        details: [
-                            'Massa com bordas espiculadas detectada',
-                            'Presença de microcalcificações',
-                            'Aumento da densidade tecidual na região',
-                            'Sem adenopatias significativas visíveis'
-                        ],
-                        confidence: 92,
-                        severity: 'Moderado',
-                        recommendations: [
-                            'Realizar tomografia computadorizada de tórax com contraste',
-                            'Avaliação com pneumologista em até 7 dias',
-                            'Considerar biópsia guiada por imagem',
-                            'Acompanhamento radiológico em 3 meses'
-                        ],
-                        technicalParams: {
-                            imageQuality: 'Boa',
-                            noiseLevel: 'Baixo',
-                            resolution: '300 DPI'
-                        }
-                    }
-                },
-                { 
-                    id: 2, 
-                    name: 'Tomografia - João Santos', 
-                    date: '2024-01-14', 
-                    status: 'analyzing',
-                    analysis: null
-                },
-                { 
-                    id: 3, 
-                    name: 'Ressonância - Ana Oliveira', 
-                    date: '2024-01-13', 
-                    status: 'pending',
-                    analysis: null
-                },
-                { 
-                    id: 4, 
-                    name: 'Mamografia - Carla Souza', 
-                    date: '2024-01-12', 
-                    status: 'completed',
-                    analysis: {
-                        primaryFindings: 'Microcalcificações agrupadas em padrão linear no quadrante súpero-lateral da mama direita.',
-                        details: [
-                            'Grupo de 5-6 microcalcificações com morfologia suspeita',
-                            'Distribuição linear sugerindo ductal',
-                            'Parênquima mamário denso',
-                            'Sem nódulo associado evidente'
-                        ],
-                        confidence: 88,
-                        severity: 'Alto',
-                        recommendations: [
-                            'Realizar core biopsy com estereotaxia',
-                            'Complementar com ultrassom focalizado',
-                            'Avaliação com mastologista em até 5 dias',
-                            'Marcação pré-cirúrgica recomendada'
-                        ],
-                        technicalParams: {
-                            imageQuality: 'Ótima',
-                            noiseLevel: 'Mínimo',
-                            resolution: '400 DPI'
-                        }
-                    }
-                },
-                { 
-                    id: 5, 
-                    name: 'Ultrassom - Roberto Lima', 
-                    date: '2024-01-11', 
-                    status: 'completed',
-                    analysis: {
-                        primaryFindings: 'Nódulo hepático hipoecogênico de contornos regulares, medindo 2.5cm.',
-                        details: [
-                            'Lesão sólida com ecotextura homogênea',
-                            'Reforço acústico posterior ausente',
-                            'Vascularização periférica ao Doppler',
-                            'Fígado de dimensões normais'
-                        ],
-                        confidence: 95,
-                        severity: 'Baixo',
-                        recommendations: [
-                            'Controle ultrassonográfico em 6 meses',
-                            'Realizar TC ou RM para caracterização',
-                            'Dosagem de marcadores tumorais'
-                        ],
-                        technicalParams: {
-                            imageQuality: 'Excelente',
-                            noiseLevel: 'Muito Baixo',
-                            resolution: '250 DPI'
-                        }
-                    }
-                },
-                { 
-                    id: 6, 
-                    name: 'TC Abdômen - Fernanda Costa', 
-                    date: '2024-01-10', 
-                    status: 'analyzing',
-                    analysis: null
-                },
-                { 
-                    id: 7, 
-                    name: 'RM Coluna - Paulo Mendes', 
-                    date: '2024-01-09', 
-                    status: 'completed',
-                    analysis: {
-                        primaryFindings: 'Hérnia de disco lombar em L4-L5 com compressão radicular.',
-                        details: [
-                            'Protrusão discal paramediana direita',
-                            'Compressão da raiz nervosa L5',
-                            'Estreitamento do canal vertebral moderado',
-                            'Sinais de degeneração discal associada'
-                        ],
-                        confidence: 91,
-                        severity: 'Moderado',
-                        recommendations: [
-                            'Fisioterapia especializada',
-                            'Avaliação neurocirúrgica para considerar tratamento',
-                            'Ressonância de controle em 3 meses se sintomas persistirem'
-                        ],
-                        technicalParams: {
-                            imageQuality: 'Boa',
-                            noiseLevel: 'Baixo',
-                            resolution: '512x512'
-                        }
-                    }
-                },
-                { 
-                    id: 8, 
-                    name: 'Raio-X Joelho - Luciana Rocha', 
-                    date: '2024-01-08', 
-                    status: 'pending',
-                    analysis: null
-                },
-                { 
-                    id: 9, 
-                    name: 'Densitometria - Mariana Dias', 
-                    date: '2024-01-07', 
-                    status: 'completed',
-                    analysis: {
-                        primaryFindings: 'Osteopenia moderada em coluna lombar e fêmur proximal.',
-                        details: [
-                            'T-score: -1.8 em L1-L4',
-                            'T-score: -1.6 em colo femoral',
-                            'Z-score dentro do esperado para idade',
-                            'Risco de fratura moderadamente aumentado'
-                        ],
-                        confidence: 96,
-                        severity: 'Moderado',
-                        recommendations: [
-                            'Suplementação de cálcio (1200mg/dia)',
-                            'Vitamina D (2000UI/dia)',
-                            'Exercícios com impacto controlado',
-                            'Reavaliação em 1 ano'
-                        ],
-                        technicalParams: {
-                            imageQuality: 'Ótima',
-                            noiseLevel: 'Mínimo',
-                            resolution: 'Alta resolução'
-                        }
-                    }
-                }
+            recentExams: [], // Array para armazenar os exames
+            // Valores iniciais das estatísticas
+            statsData: {
+                totalExams: 0,
+                aiAnalyses: 0,
+                criticalCases: 0,
+                aiAccuracy: 98 // Mantém a precisão fixa em 98%
+            }
+        }
+    },
+    computed: {
+        dashboardStats() {
+            return [
+                { icon: 'fas fa-chart-simple', value: this.statsData.totalExams.toLocaleString(), label: 'Total de Exames' },
+                { icon: 'fas fa-brain', value: this.statsData.aiAnalyses.toLocaleString(), label: 'Análises com IA' },
+                { icon: 'fas fa-exclamation-triangle', value: this.statsData.criticalCases.toLocaleString(), label: 'Casos Críticos' },
+                { icon: 'fas fa-bullseye', value: `${this.statsData.aiAccuracy}%`, label: 'Precisão da IA' }
             ]
         }
     },
     methods: {
+        formatDate(date) {
+            if (!date) return 'Data não informada'
+            return new Date(date).toLocaleDateString('pt-BR')
+        },
+        
         statusIcon(status) {
             const icons = {
                 completed: 'fas fa-check-circle',
@@ -342,6 +234,7 @@ export default {
             }
             return icons[status] || 'fas fa-circle'
         },
+        
         statusText(status) {
             const texts = {
                 completed: 'Concluído',
@@ -350,22 +243,82 @@ export default {
             }
             return texts[status] || status
         },
+        
+        addNewExam(examData) {
+            console.log('Novo exame recebido:', examData)
+            
+            // Adicionar o novo exame no início da lista
+            this.recentExams.unshift(examData)
+            
+            // Atualizar estatísticas baseado nos exames reais
+            this.updateStatistics()
+            
+            // Salvar no localStorage para persistência
+            this.saveToLocalStorage()
+            
+            // Feedback visual
+            this.showNotification(`Exame de ${examData.patientData.name} adicionado com sucesso!`)
+        },
+        
+        updateStatistics() {
+            // Atualiza o total de exames
+            this.statsData.totalExams = this.recentExams.length
+            
+            // Atualiza análises com IA (exames concluídos)
+            this.statsData.aiAnalyses = this.recentExams.filter(e => e.status === 'completed').length
+            
+            // Atualiza casos críticos (severidade Alta)
+            this.statsData.criticalCases = this.recentExams.filter(e => 
+                e.analysis && e.analysis.severity === 'Alto'
+            ).length
+        },
+        
         viewExamDetails(exam) {
             this.selectedExam = exam
         },
+        
         closeModal() {
             this.selectedExam = null
         },
-        handleExamAnalysis(analysisData) {
-            // Método para receber análises do componente AIPredictor
-            console.log('Nova análise recebida:', analysisData)
-            // Atualizar exames recentes com a nova análise
-            const examIndex = this.recentExams.findIndex(e => e.id === analysisData.examId)
-            if (examIndex !== -1) {
-                this.recentExams[examIndex].analysis = analysisData.analysis
-                this.recentExams[examIndex].status = 'completed'
+        
+        saveToLocalStorage() {
+            localStorage.setItem('recentExams', JSON.stringify(this.recentExams))
+            localStorage.setItem('statsData', JSON.stringify(this.statsData))
+        },
+        
+        loadFromLocalStorage() {
+            const savedExams = localStorage.getItem('recentExams')
+            const savedStats = localStorage.getItem('statsData')
+            
+            if (savedExams) {
+                this.recentExams = JSON.parse(savedExams)
             }
+            
+            if (savedStats) {
+                this.statsData = JSON.parse(savedStats)
+            } else {
+                // Se não tem estatísticas salvas, calcula baseado nos exames
+                this.updateStatistics()
+            }
+            
+            console.log('Exames carregados:', this.recentExams.length)
+        },
+        
+        showNotification(message) {
+            // Criar notificação temporária
+            const notification = document.createElement('div')
+            notification.className = 'notification'
+            notification.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`
+            document.body.appendChild(notification)
+            
+            setTimeout(() => {
+                notification.remove()
+            }, 3000)
         }
+    },
+    mounted() {
+        // Carregar exames salvos ao iniciar
+        this.loadFromLocalStorage()
     }
 }
 </script>
@@ -451,6 +404,10 @@ export default {
     gap: 2rem;
 }
 
+.ai-predictor-wrapper {
+    min-width: 0;
+}
+
 .recent-exams {
     background: rgba(255, 255, 255, 0.03);
     backdrop-filter: blur(10px);
@@ -478,6 +435,27 @@ export default {
     gap: 1rem;
     max-height: 600px;
     overflow-y: auto;
+}
+
+.no-exams {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #666;
+}
+
+.no-exams i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: #444;
+}
+
+.no-exams p {
+    margin-bottom: 0.5rem;
+    color: #888;
+}
+
+.no-exams span {
+    font-size: 0.8rem;
 }
 
 .exam-item {
@@ -666,6 +644,41 @@ export default {
     gap: 8px;
 }
 
+.patient-details-card {
+    background: rgba(0, 242, 255, 0.05);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.patient-detail-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.patient-detail-row:last-child {
+    margin-bottom: 0;
+}
+
+.patient-detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.detail-label {
+    color: #888;
+    font-size: 0.75rem;
+}
+
+.detail-value {
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
 .analysis-card {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.05);
@@ -807,6 +820,34 @@ export default {
     color: var(--cyber-blue);
 }
 
+/* Notification */
+.notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, var(--cyber-blue), var(--emerald));
+    color: #000;
+    padding: 1rem 1.5rem;
+    border-radius: 10px;
+    font-weight: bold;
+    z-index: 2000;
+    animation: slideInRight 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -847,6 +888,11 @@ export default {
     
     .exam-details {
         grid-template-columns: 1fr;
+    }
+    
+    .patient-detail-row {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
     }
 }
 </style>
