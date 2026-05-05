@@ -9,13 +9,13 @@
           <div class="info-card">
             <i class="fas fa-map-marker-alt info-icon"></i>
             <h3>Endereço</h3>
-            <p>Av. Paulista, 1000<br>São Paulo - SP, 01310-100</p>
+            <p>Rua Rio Iguará, Nº 54<br>Residencial Ribeira, 01310-100</p>
           </div>
           
           <div class="info-card">
             <i class="fas fa-phone-alt info-icon"></i>
             <h3>Telefone</h3>
-            <p>(11) 4000-0000<br>(11) 98765-4321</p>
+            <p>(98) 0000-0000<br>(98) 90000-0000</p>
           </div>
           
           <div class="info-card">
